@@ -77,11 +77,12 @@ for i in range(3):
     cols = st.columns(3)
     for j in range(3):
         if st.session_state.board[i,j] == "" and not st.session_state.game_over:
-            if cols[j].button(" ", key=f"{i}{j}", use_container_width=True, height=100):
+            if cols[j].button(" ", key=f"{i}{j}", use_container_width=True):
                 st.session_state.board[i,j] = "X"
                 st.session_state.turn = "O"
         else:
-            cols[j].button(st.session_state.board[i,j], key=f"{i}{j}", disabled=True, use_container_width=True, height=100)
+            cols[j].button(st.session_state.board[i,j], key=f"{i}{j}", disabled=True, use_container_width=True)
+
 
 # --- AI Move ---
 if st.session_state.turn == "O" and not st.session_state.game_over:
@@ -106,3 +107,4 @@ if st.button("🔄 Restart Game"):
     st.session_state.turn = "X"
     st.session_state.game_over = False
     st.session_state.winner = None
+
