@@ -1,53 +1,108 @@
-from flask import Flask, render_template, request, jsonify
-from tic_tac_toe_ai import TicTacToeAI
+import streamlit as st
 import numpy as np
+import random
 
-app = Flask(__name__)
-ai = TicTacToeAI()
+st.set_page_config(page_title="Tic Tac Toe AI", page_icon="🎮", layout="centered")
 
-# Global game board
-board = np.full((3, 3), '')
+st.title("🤖 Tic Tac Toe with AI")
+st.write("Play against an unbeatable AI (Minimax algorithm). Good luck! 😉")
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+# --- Initialize game state ---
+if "board" not in st.session_state:
+    st.session_state.board = np.full((3,3), "", dtype=str)
+    st.session_state.turn = "X"  # Player always X
+    st.session_state.game_over = False
+    st.session_state.winner = None
 
-@app.route('/move', methods=['POST'])
-def move():
-    global board
-    data = request.get_json()
-    row, col = data['row'], data['col']
+# --- Helper: Check Winner ---
+def check_winner(board):
+    for i in range(3):
+        if board[i,0] == board[i,1] == board[i,2] != "":
+            return board[i,0]
+        if board[0,i] == board[1,i] == board[2,i] != "":
+            return board[0,i]
+    if board[0,0] == board[1,1] == board[2,2] != "":
+        return board[0,0]
+    if board[0,2] == board[1,1] == board[2,0] != "":
+        return board[0,2]
+    return None
 
-    # Player move
-    if board[row][col] == '':
-        board[row][col] = 'X'
+# --- Helper: Minimax AI ---
+def minimax(board, depth, is_maximizing):
+    winner = check_winner(board)
+    if winner == "O":
+        return 1
+    elif winner == "X":
+        return -1
+    elif "" not in board:
+        return 0
 
-        # Check winner
-        winner = ai.check_winner(board)
-        if winner:
-            return jsonify({'board': board.tolist(), 'winner': winner})
+    if is_maximizing:
+        best_score = -999
+        for i in range(3):
+            for j in range(3):
+                if board[i,j] == "":
+                    board[i,j] = "O"
+                    score = minimax(board, depth+1, False)
+                    board[i,j] = ""
+                    best_score = max(score, best_score)
+        return best_score
+    else:
+        best_score = 999
+        for i in range(3):
+            for j in range(3):
+                if board[i,j] == "":
+                    board[i,j] = "X"
+                    score = minimax(board, depth+1, True)
+                    board[i,j] = ""
+                    best_score = min(score, best_score)
+        return best_score
 
-        # AI move
-        ai_row, ai_col = ai.best_move(board)
-        if ai_row is not None:
-            board[ai_row][ai_col] = 'O'
+def best_move(board):
+    best_score = -999
+    move = None
+    for i in range(3):
+        for j in range(3):
+            if board[i,j] == "":
+                board[i,j] = "O"
+                score = minimax(board, 0, False)
+                board[i,j] = ""
+                if score > best_score:
+                    best_score = score
+                    move = (i,j)
+    return move
 
-        # Check winner after AI
-        winner = ai.check_winner(board)
-        if winner:
-            return jsonify({'board': board.tolist(), 'winner': winner})
+# --- Game Board UI ---
+for i in range(3):
+    cols = st.columns(3)
+    for j in range(3):
+        if st.session_state.board[i,j] == "" and not st.session_state.game_over:
+            if cols[j].button(" ", key=f"{i}{j}", use_container_width=True, height=100):
+                st.session_state.board[i,j] = "X"
+                st.session_state.turn = "O"
+        else:
+            cols[j].button(st.session_state.board[i,j], key=f"{i}{j}", disabled=True, use_container_width=True, height=100)
 
-    # Draw check
-    if '' not in board:
-        return jsonify({'board': board.tolist(), 'winner': 'Draw'})
+# --- AI Move ---
+if st.session_state.turn == "O" and not st.session_state.game_over:
+    move = best_move(st.session_state.board)
+    if move:
+        st.session_state.board[move] = "O"
+    st.session_state.turn = "X"
 
-    return jsonify({'board': board.tolist(), 'winner': None})
+# --- Check Winner ---
+winner = check_winner(st.session_state.board)
+if winner:
+    st.session_state.game_over = True
+    st.session_state.winner = winner
+    st.success(f"🎉 {winner} wins!")
+elif "" not in st.session_state.board:
+    st.session_state.game_over = True
+    st.info("😅 It's a draw!")
 
-@app.route('/restart', methods=['POST'])
-def restart():
-    global board
-    board = np.full((3, 3), '')
-    return jsonify({'board': board.tolist(), 'winner': None})
-
-if __name__ == '__main__':
-    app.run(debug=True)
+# --- Restart Button ---
+if st.button("🔄 Restart Game"):
+    st.session_state.board = np.full((3,3), "", dtype=str)
+    st.session_state.turn = "X"
+    st.session_state.game_over = False
+    st.session_state.winner = None
